@@ -5,13 +5,15 @@ use near_contract_standards::non_fungible_token::metadata::TokenMetadata;
 use near_contract_standards::non_fungible_token::NonFungibleToken;
 use near_contract_standards::non_fungible_token::{Token, TokenId};
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::collections::{LazyOption, UnorderedMap, UnorderedSet};
-use near_sdk::json_types::ValidAccountId;
+use near_sdk::collections::{LazyOption, UnorderedMap, UnorderedSet,LookupMap};
+use near_sdk::AccountId;
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{
     assert_one_yocto, env, ext_contract, log, near_bindgen, AccountId, Balance, BorshStorageKey,
     Gas, PanicOnDefault, Promise, PromiseOrValue, PromiseResult, Timestamp,
 };
+use std::convert::{TryFrom, TryInto};
+
 
 const MINT_FEE: Balance = 1_000_000_000_000_000_000_000_0;
 const PREPARE_GAS: Gas = 1_500_000_000_000_0;
@@ -47,7 +49,7 @@ impl Contract {
             owner_id,
             tokens: NonFungibleToken::new(
                 StorageKey::NonFungibleToken,
-                ValidAccountId::try_from(env::current_account_id()).unwrap(),
+                AccountId::try_from(env::current_account_id()).unwrap(),
                 Some(StorageKey::TokenMetadata),
                 Some(StorageKey::Enumeration),
                 Some(StorageKey::Approval),
@@ -109,7 +111,7 @@ impl Contract {
                 self.owner_id
             )
         );
-        let mut ticket_infos = HashMap::new();
+        let mut ticket_infos = LookupMap::new();
         for i in 0..ticket_types.len() {
             let price: Balance = (ticket_prices[i] * 1_000_000_000_000_000_000_000_000u128 as f64)
                 .round() as Balance
@@ -175,7 +177,7 @@ impl Contract {
         );
         ex_self::nft_private_mint(
             ticket_id,
-            ValidAccountId::try_from(env::predecessor_account_id()).unwrap(),
+            AccountId::try_from(env::predecessor_account_id()).unwrap(),
             &env::current_account_id(),
             MINT_FEE,
             PREPARE_GAS,
@@ -208,7 +210,7 @@ impl Contract {
     }
     #[payable]
     #[private]
-    pub fn nft_private_mint(&mut self, token_id: TokenId, receiver_id: ValidAccountId) -> Token {
+    pub fn nft_private_mint(&mut self, token_id: TokenId, receiver_id: AccountId) -> Token {
         let token_id_split: Vec<&str> = token_id.split(".").collect();
         let game_id = token_id_split[0].to_string();
         let ticket_type = token_id_split[1].to_string();
@@ -335,13 +337,13 @@ pub struct GameMetadata {
     pub game_id: String, // required,
     pub game_title: Option<String>,
     pub game_description: Option<String>,
-    pub ticket_infos: HashMap<String, TicketInfo>,
+    pub ticket_infos: LookupMap<String, TicketInfo>,
     pub game_banner: Option<String>,
     pub selling_start_time: Timestamp, // required
 }
 
 #[ext_contract(ex_self)]
 trait TTicketContract {
-    fn nft_private_mint(&mut self, token_id: TokenId, receiver_id: ValidAccountId) -> Token;
+    fn nft_private_mint(&mut self, token_id: TokenId, receiver_id: AccountId) -> Token;
     fn check_mint(&self, buyer: AccountId, price: Balance);
 }
